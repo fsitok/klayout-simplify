@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<klayout-macro>
+ <description/>
+ <version/>
+ <category>pymacros</category>
+ <prolog/>
+ <epilog/>
+ <doc/>
+ <autorun>false</autorun>
+ <autorun-early>false</autorun-early>
+ <shortcut/>
+ <show-in-menu>false</show-in-menu>
+ <group-name/>
+ <menu-path/>
+ <interpreter>python</interpreter>
+ <dsl-interpreter-name/>
+ <text>import pya
+from typing import Iterable, Tuple
+
+
+def run_with_dialog():
+    """
+    Ask the user for the maximum allowed error and then run the approximation on all shapes of the layout.
+    :return:
+    """
+    max_err = pya.InputDialog().ask_double_ex("Run Approximation", "Maximum allowed error:", 10, 0, 1e6, 3)
+    if max_err is not None:
+        approximate_current_layout(max_err)
+
+
+def approximate_current_layout(max_err: float):
+    """
+    Apply approximation on all cells and layers of the current layout.
+    :param max_err:
+    """
+    cv = pya.CellView().active()
+    ly = cv.layout()
+
+    for cell in ly.each_cell():
+        for i in range(0, ly.layers()):
+            shapes = cell.shapes(i)
+            r = pya.Region(shapes.dup()).merged()
+            r_approx = approximate_region(r, max_err)
+            shapes.clear()
+            shapes.insert(r_approx)
+
+
+def approximate_region(region: pya.Region, max_err: float) -&gt; pya.Region():
+    """ Approximate a full region.
+    Find a heuristic approximation of the region with maximum error `max_err` and minimal number of vertices.
+    """
+    result = pya.Region()
+
+    for poly in region.each():
+        n_holes = poly.holes()
+
+        approx_hull = approximate_polygon(poly.each_point_hull(), max_err)
+        approx_holes = [approximate_polygon(poly.each_point_hole(i), max_err)
+                        for i in range(n_holes)]
+
+        poly = pya.Polygon(approx_hull)
+        for hole in approx_holes:
+            poly.insert_hole(list(hole.each_point()))
+        result.insert(poly)
+    return result
+
+
+def approximate_polygon(polygon: Iterable[pya.Point], max_err: float) -&gt; pya.SimplePolygon():
+    """ Approximate a polygon.
+    Find a heuristic approximation of the polygon with maximum error `max_err` and minimal number of vertices.
+    :param polygon: List[pya.Point]
+    :param max_err:
+    :return: Approximated polygon: List[pya.Point]
+    """
+
+    if max_err &lt;= 0:
+        return polygon
+
+    RIGHT_OF = -1
+    LEFT_OF = 1
+    CENTER = 0
+
+    def error_sector(anchor: pya.DPoint, p: pya.DPoint) -&gt; Tuple[pya.DPoint, pya.DPoint]:
+        """
+        Construct a sector starting at `anchor` and `p` on the center line.
+
+        :param anchor: Tip of the sector.
+        :param p:
+        :return: Two edges representing the sector.
+        """
+
+        if anchor == p:
+            # Sector contains everything.
+            return True
+
+        # Get the normal `n` of unit length. (orthogonal to `v`)
+        v = p - anchor
+        v = v * (1. / v.length())  # Normalize length
+        n = pya.DVector(-v.y, v.x)
+
+        # Construct error sector.
+        p_left = p + n * max_err
+        p_right = p - n * max_err
+
+        # Left/right edges of sector
+        left = pya.DEdge(anchor, p_left)
+        right = pya.DEdge(anchor, p_right)
+
+        # Assert that sector is well formed.
+        assert left.side_of(right.p2) == RIGHT_OF, "sector not well formed."
+
+        return left, right
+
+    def intersect_sectors(s1, s2):
+        """ Compute the logical `AND` of two sectors. Both sectors are required to originate from the same point.
+        `True` is treated as the sector containing everything.
+        `False` represents an empty sector.
+        :param s1:
+        :param s2:
+        :return: Two edges representing the resulting sector or None. (pya.Edge, pya.Edge)
+        """
+
+        # Handle degenerate cases first.
+        if s1 is True and s2 is True:
+            return True
+
+        if s1 is True:
+            return s2
+
+        if s2 is True:
+            return s1
+
+        l1, r1 = s1
+        l2, r2 = s2
+
+        # Assert that anchor points are the same for all sectors.
+        assert l1.p1 == r1.p1 and l2.p1 == r2.p1 and l1.p1 == l2.p1, "sectors must share anchor point"
+
+        # Assert that sectors are well formed.
+        assert l1.side_of(r1.p2) == RIGHT_OF
+        assert l2.side_of(r2.p2) == RIGHT_OF
+
+        if l1.side_of(l2.p2) == LEFT_OF:
+            l = l1
+        else:
+            l = l2
+
+        if r1.side_of(r2.p2) == RIGHT_OF:
+            r = r1
+        else:
+            r = r2
+
+        if l.side_of(r.p2) == RIGHT_OF:
+            return l, r
+        else:
+            # Intersection is empty
+            return False
+
+    it = iter(polygon)
+
+    try:
+        prev = pya.DPoint(next(it))
+    except StopIteration:
+        # Handle empty polygon
+        return pya.SimplePolygon([])
+
+    anchor = prev
+    output = [anchor]
+    sector = True
+
+    for p in it:
+        current = pya.DPoint(p)
+
+        # Skip duplicate points
+        if current == prev:
+            continue
+
+        # Get current error sector
+        curr_sector = error_sector(anchor, current)
+
+        sector_intersection = intersect_sectors(sector, curr_sector)
+
+        if sector_intersection is False:
+            output.append(prev)
+            anchor = prev
+            sector = error_sector(prev, current)
+        else:
+            sector = sector_intersection
+
+        prev = current
+
+    # Close the polygon
+    output.append(prev)
+
+    return pya.SimplePolygon(output)
+
+
+
+##################################
+# Setup user interface
+##################################
+
+menu_handler = pya.Action()
+menu_handler.title = "Simplify Layout"
+menu_handler.on_triggered(run_with_dialog)
+#menu_handler.shortcut = "Ctrl+Shift+3"
+      
+def initialize():
+  menu = main_window.menu()
+  menu.insert_separator('tools_menu.end', 'approx')
+  menu.insert_item("tools_menu.end", "run_approx", menu_handler)
+
+
+initialize()</text>
+</klayout-macro>
