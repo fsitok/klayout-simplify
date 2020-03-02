@@ -226,6 +226,7 @@ menu_handler.on_triggered(run_with_dialog)
 #menu_handler.shortcut = "Ctrl+Shift+3"
       
 def initialize():
+  main_window = pya.Application.instance().main_window()
   menu = main_window.menu()
   menu.insert_separator('tools_menu.end', 'approx')
   menu.insert_item("tools_menu.end", "run_approx", menu_handler)
