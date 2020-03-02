@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <klayout-macro>
- <description/>
- <version/>
+ <description>Simplify polygons by approximation with a configurable error.</description>
+ <version>0.0</version>
  <category>pymacros</category>
  <prolog/>
  <epilog/>
  <doc/>
- <autorun>false</autorun>
+ <autorun>true</autorun>
  <autorun-early>false</autorun-early>
  <shortcut/>
  <show-in-menu>false</show-in-menu>
