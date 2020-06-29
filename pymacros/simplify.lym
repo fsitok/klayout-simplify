@@ -59,7 +59,8 @@ def approximate_current_layout(max_err: float):
     for cell in ly.each_cell():
         for i in range(0, ly.layers()):
             shapes = cell.shapes(i)
-            r = pya.Region(shapes.dup()).merged()
+            r = pya.Region(shapes)
+            r.merge()
             r_approx = approximate_region(r, max_err)
             shapes.clear()
             shapes.insert(r_approx)
