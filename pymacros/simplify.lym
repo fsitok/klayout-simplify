@@ -61,10 +61,10 @@ def approximate_current_layout(max_err: float):
             shapes = cell.shapes(i)
             r = pya.Region(shapes)
             r.merge()
-            r_approx = approximate_region(r, max_err)
+            r_approx = r.smoothed(int(max_err))
             shapes.clear()
             shapes.insert(r_approx)
-
+'''
 
 def approximate_region(region: pya.Region, max_err: float) -&gt; pya.Region():
     """ Approximate a full region.
@@ -215,7 +215,7 @@ def approximate_polygon(polygon: Iterable[pya.Point], max_err: float) -&gt; pya.
 
     return pya.SimplePolygon(output)
 
-
+'''
 
 ##################################
 # Setup user interface
