@@ -3,7 +3,7 @@
  <name>simplify</name>
  <token/>
  <hidden>false</hidden>
- <version>0.0.0</version>
+ <version>0.1.1</version>
  <api-version/>
  <title>Simplify</title>
  <doc>Simplifies all shapes in a layout with polygons with fewer vertices while respecting a maximal approximation error.</doc>
