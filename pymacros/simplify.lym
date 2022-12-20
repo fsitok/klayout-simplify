@@ -43,7 +43,7 @@ def run_with_dialog():
     Ask the user for the maximum allowed error and then run the approximation on all shapes of the layout.
     :return:
     """
-    max_err = pya.InputDialog().ask_double_ex("Run Approximation", "Maximum allowed error:", 10, 0, 1e6, 3)
+    max_err = pya.InputDialog().ask_double_ex("Run Approximation", "Maximum allowed error [um]:", 1, 0, 1e12, 4)
     if max_err is not None:
         approximate_current_layout(max_err)
 
@@ -51,17 +51,19 @@ def run_with_dialog():
 def approximate_current_layout(max_err: float):
     """
     Apply approximation on all cells and layers of the current layout.
-    :param max_err:
+    :param max_err: Maximum error in microns.
     """
     cv = pya.CellView().active()
     ly = cv.layout()
+
+    max_err_dbu = int(max_err / ly.dbu)
 
     for cell in ly.each_cell():
         for i in range(0, ly.layers()):
             shapes = cell.shapes(i)
             r = pya.Region(shapes)
             r.merge()
-            r_approx = r.smoothed(int(max_err))
+            r_approx = r.smoothed(max_err_dbu)
             shapes.clear()
             shapes.insert(r_approx)
 '''
